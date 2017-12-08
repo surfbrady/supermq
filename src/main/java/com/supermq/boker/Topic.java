@@ -13,7 +13,8 @@ public class Topic {
 	private String topicName;
 	private Journal journal;
 	
-	public Topic () {
+	public Topic (String topicName) {
+		this.topicName = topicName;
 		journal = new Journal();
 	}
 	
@@ -30,7 +31,7 @@ public class Topic {
 	public static void main(String[] args) {
 		Message msg = new Message();
 		msg.setContext("yes first");
-		Topic topic = new Topic();
+		Topic topic = new Topic("aa");
 		try {
 			topic.addMessage(msg);
 			System.out.println(JSON.toJSONString(topic.getMessage()));
