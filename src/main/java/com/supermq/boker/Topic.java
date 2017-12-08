@@ -37,6 +37,5 @@ public class Topic {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		
 	}
 }

@@ -18,8 +18,9 @@ public class Journal {
 	
 	public Journal () {
 		try {
-			RandomAccessFile rf = new RandomAccessFile("D://supermq//1.data", "rw");
-		} catch (FileNotFoundException e) {
+			rf = new RandomAccessFile("D://supermq//1.data", "rw");
+			rf.setLength(1024*1024); // 预分配 1M 的文件空间  
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
@@ -32,9 +33,10 @@ public class Journal {
 	}
 
 	public Message getMessage() throws Exception {
+		rf.seek(0L);
 		int messageLength = rf.readInt();
-		byte[] bytes = null;
-		rf.read(bytes, 4, messageLength);
+		byte[] bytes = new byte[messageLength];
+		rf.read(bytes, 0, messageLength);
 		return JSON.parseObject(bytes, Message.class, null);
 	}
 }
