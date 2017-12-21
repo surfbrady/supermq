@@ -1,7 +1,5 @@
 package com.supermq.store;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.io.RandomAccessFile;
 
 import com.alibaba.fastjson.JSON;
@@ -9,6 +7,7 @@ import com.supermq.entity.Message;
 
 /**
  * 日志文件用于记录消息
+ * 
  * @author brady
  *
  */
@@ -18,8 +17,8 @@ public class Journal {
 	
 	public Journal () {
 		try {
-			rf = new RandomAccessFile("D://supermq//1.data", "rw");
-			rf.setLength(1024*1024); // 预分配 1M 的文件空间  
+			rf = new RandomAccessFile("D://supermq//1.log", "rw");
+			rf.setLength(1024*1024*50); // 预分配 50M 的文件空间  
 		} catch (Exception e) {
 			e.printStackTrace();
 		}

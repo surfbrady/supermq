@@ -12,10 +12,11 @@ public class Topic {
 	private List<Consumer> consumer;
 	private String topicName;
 	private Journal journal;
+	private com.supermq.store.Index Index;
 	
-	public Topic (String topicName) {
+	public Topic (String topicName, Journal journal) {
 		this.topicName = topicName;
-		journal = new Journal();
+		this.journal = journal;
 	}
 	
 	public void addMessage(Message msg) throws Exception {
@@ -31,7 +32,7 @@ public class Topic {
 	public static void main(String[] args) {
 		Message msg = new Message();
 		msg.setContext("yes first");
-		Topic topic = new Topic("aa");
+		Topic topic = new Topic("aa", new Journal());
 		try {
 			topic.addMessage(msg);
 			System.out.println(JSON.toJSONString(topic.getMessage()));

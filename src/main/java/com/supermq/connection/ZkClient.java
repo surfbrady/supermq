@@ -1,4 +1,4 @@
-package com.supermq.client;
+package com.supermq.connection;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;

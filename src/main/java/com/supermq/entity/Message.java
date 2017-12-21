@@ -11,6 +11,7 @@ public class Message implements Serializable {
 	
 	private long messageId;
 	private String context;
+	private Destination destination;
 	
 	public long getMessageId() {
 		return messageId;
