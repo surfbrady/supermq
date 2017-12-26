@@ -25,6 +25,11 @@ public class Message implements Serializable {
 	public void setContext(String context) {
 		this.context = context;
 	}
-	
+	public Destination getDestination() {
+		return destination;
+	}
+	public void setDestination(Destination destination) {
+		this.destination = destination;
+	}
 	
 }
