@@ -1,10 +1,12 @@
 package com.supermq.store;
 
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.collections.CollectionUtils;
 
+import com.supermq.entity.Destination;
 import com.supermq.entity.Message;
 import com.supermq.store.IndexLog.MsgLocation;
 
@@ -26,7 +28,7 @@ public class IndexCache {
 
 	private static ConcurrentHashMap<String, BTreeNode> bTreeMap = new ConcurrentHashMap<String, BTreeNode>();
 	
-	private static final int m = 50;       // 50阶B树
+	private static final int m = 4;       // 50阶B树
 	
 	public IndexCache() {
 		
@@ -87,7 +89,7 @@ public class IndexCache {
 		// 遍历查找
 		for(int i=0; i<keys.size(); i++) {
 			if (keys.get(i).getMessageId()>msgLocation.getMessageId()) {
-				keys.add(i-1, msgLocation);
+				keys.add(i, msgLocation);
 				return;
 			}
 		}
@@ -148,4 +150,94 @@ public class IndexCache {
 		return sb.toString();
 	}
 	
+	/**
+	 * 删除消息
+	 * @param message
+	 * @throws Exception
+	 */
+	public void delMessage(Message message) throws Exception {
+		// 第一步找到root节点
+		BTreeNode rootNode = bTreeMap.get(message.getDestination().getName());
+		if (rootNode==null) {
+			throw new Exception("该主题不存在");
+		}
+		// 第二步找到该结点位置
+		BTreeNode exietNode = findBTreeNodeContainKey(rootNode, message);
+		if (exietNode == null) {
+			throw new Exception("该消息不存在");
+		}
+		// 第三步 删除结点之后，需要看树是否仍是B树
+		adjustBTree(exietNode, message);
+	}
+
+	private void adjustBTree(BTreeNode exietNode, Message message) throws Exception {
+		// 1. 如果该结点，满足B树的定义则不用操作
+		if (exietNode.getParent()==null) {
+			return;
+		}
+		
+		int loc = -1;
+		for (int i=0; i<exietNode.getKeys().size(); i++) {
+			if (exietNode.getKeys().get(i).getMessageId() == message.getMessageId()) {
+				loc = i;
+				break;
+			}
+		}
+		
+		if (loc<0) {
+			throw new Exception("该结点不存在");
+		}
+		
+		// 说明是叶子结点，直接删除即可
+		if (CollectionUtils.isEmpty(exietNode.getChilds())) {
+			exietNode.getKeys().remove(loc);
+			return;
+		}
+		// 查看兄弟结点是否富有，如果富有则借一个。
+		// 首先看右边
+		
+	}
+	/**
+	 * 查找该消息存在的位置
+	 * @param rootNode
+	 * @param message
+	 * @return
+	 */
+	private BTreeNode findBTreeNodeContainKey(BTreeNode node, Message message) {
+		if (CollectionUtils.isEmpty(node.getKeys())) {
+			return null;
+		}
+		for (int i=0; i<node.getKeys().size(); i++) {
+			if (node.getKeys().get(i).getMessageId() == message.getMessageId()) {
+				return node;
+			}
+			if (node.getKeys().get(i).getMessageId() > message.getMessageId()) {
+				if (CollectionUtils.isNotEmpty(node.getChilds()) && node.getChilds().size()>=(i+1)) {
+					return findBTreeNodeContainKey(node.getChilds().get(i), message);
+				} else return null;
+			}
+		}
+		if (CollectionUtils.isNotEmpty(node.getChilds()) && node.getChilds().size()>=(node.getKeys().size()+1)) {
+			return findBTreeNodeContainKey(node.getChilds().get(node.getKeys().size()), message);
+		} else return null;
+	}
+
+	public static void main(String[] args) {
+		IndexCache indexCache = new IndexCache();
+		for (int i =0;i<100;i++) {
+			int a = new Random().nextInt(1000);
+			Message message = new Message();
+			message.setMessageId(a);
+			Destination destination = new Destination();
+			destination.setName("a");
+			message.setDestination(destination );
+			try {
+				indexCache.addMessage(message);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+		
+		System.out.println("最终字符串为：" + indexCache.printNode("a"));
+	}
 }
