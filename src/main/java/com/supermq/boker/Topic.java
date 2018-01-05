@@ -5,6 +5,7 @@ import java.util.List;
 import com.alibaba.fastjson.JSON;
 import com.supermq.consumer.Consumer;
 import com.supermq.entity.Message;
+import com.supermq.store.IndexLog;
 import com.supermq.store.Journal;
 
 public class Topic {
@@ -12,7 +13,6 @@ public class Topic {
 	private List<Consumer> consumer;
 	private String topicName;
 	private Journal journal;
-	private com.supermq.store.Index Index;
 	
 	public Topic (String topicName, Journal journal) {
 		this.topicName = topicName;
@@ -21,7 +21,9 @@ public class Topic {
 	
 	public void addMessage(Message msg) throws Exception {
 		// 添加消息
-		journal.addMessage(msg);
+		IndexLog.MsgLocation msgLocation = journal.addMessage(msg);
+		
+		
 	}
 	
 	public Message getMessage() throws Exception {

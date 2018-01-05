@@ -24,11 +24,17 @@ public class Journal {
 		}
 	}
 	
-	public void addMessage(Message msg) throws Exception {
+	public IndexLog.MsgLocation addMessage(Message msg) throws Exception {
 		// 添加消息
 		byte[] bytes = JSON.toJSONString(msg).getBytes();
+		long start = rf.getFilePointer();
 		rf.writeInt(bytes.length);
 		rf.write(bytes);
+		IndexLog.MsgLocation msgLocation = new IndexLog.MsgLocation();
+		msgLocation.setSize(4 + bytes.length);
+		msgLocation.setMessageId(msg.getMessageId());
+		msgLocation.setLocation(start);
+		return msgLocation;
 	}
 
 	public Message getMessage() throws Exception {
