@@ -185,10 +185,23 @@ public class IndexCache {
 		}
 		
 		// 找出该节点该关键字对应的左子树的最大关键字，替换该关键字。
-		
-		
-		// 第三步 删除左子树的最大关键字，需要调整仍是B树
-		adjustBTree(exietNode, message);
+		if (CollectionUtils.isNotEmpty(exietNode.getChilds())) {
+			BTreeNode leftLeafNode = exietNode.getChilds().get(exietNode.getChilds().size()-1);
+			while (CollectionUtils.isNotEmpty(leftLeafNode.getChilds())) {
+				leftLeafNode = exietNode.getChilds().get(leftLeafNode.getChilds().size()-1);
+			}
+			for (int i=0; i<exietNode.getKeys().size(); i++) {
+				MsgLocation msgLocation = exietNode.getKeys().get(i);
+				if (msgLocation.getMessageId() == message.getMessageId()) {
+					msgLocation = leftLeafNode.getKeys().get(leftLeafNode.getKeys().size()-1);
+				}
+			}
+			leftLeafNode.getKeys().remove(leftLeafNode.getKeys().size()-1);
+			adjustInsideBTree(leftLeafNode);
+		} else {
+			adjustBTree(exietNode, message);
+			
+		}
 	}
 
 	/**
@@ -239,10 +252,23 @@ public class IndexCache {
 		}
 		
 		deleteKeyInBTreeNode(exietNode, message);
-		// 如果该节点的关键字大于最小关键字个数，直接删除关键字即可。
+		
+		adjustInsideBTree(exietNode);
+	}
+	
+	/**
+	 * 该节点是否平衡,如果不平衡将其调整平衡
+	 * @param parent
+	 */
+	private void adjustInsideBTree(BTreeNode exietNode) throws Exception {
+		if (exietNode.getParent()==null) {
+			return;
+		}
+		
 		if (exietNode.getKeys().size() >= (Math.ceil(m/2.0)-1)) {
 			return;
 		}
+		
 		// 查看兄弟结点是否富有，如果富有则借一个。
 		// 先看左边
 		// 查找指向该指针的位置
@@ -253,15 +279,23 @@ public class IndexCache {
 			int leftNodeKeySize = leftNode.getKeys().size();
 			exietNode.getParent().getKeys().add(i-1, leftNode.getKeys().get(leftNodeKeySize-1));    // 在父节点中插入左孩子的最大关键字
 			leftNode.getKeys().remove(leftNodeKeySize-1); // 在左孩子中删除最大关键字
+			if (CollectionUtils.isNotEmpty(leftNode.getChilds())) {
+				exietNode.getChilds().add(0,leftNode.getChilds().get(leftNode.getChilds().size()-1));
+				leftNode.getChilds().remove(leftNode.getChilds().size()-1);
+			}
 			// 在该节点中插入
-			exietNode.getKeys().add(msgLocation);
+			exietNode.getKeys().add(0,msgLocation);
 		}
 		// 在看右边
 		if (i<(exietNode.getParent().getKeys().size()-1) && (exietNode.getParent().getChilds().get(i+1).getKeys().size()>=Math.ceil(m/2.0))) {
 			BTreeNode rightNode = exietNode.getParent().getChilds().get(i+1);
 			MsgLocation msgLocation = deleteKeyInBTreeNode(exietNode.getParent(), i);  // 删掉父节点中的该关键字
-			exietNode.getParent().getKeys().add(i, rightNode.getKeys().get(0));    // 在父节点中插入左孩子的最大关键字
-			rightNode.getKeys().remove(0); // 在左孩子中删除最大关键字
+			exietNode.getParent().getKeys().add(i, rightNode.getKeys().get(0));    // 在父节点中插入右孩子的最大关键字
+			rightNode.getKeys().remove(0); // 在右孩子中删除最大关键字
+			if (CollectionUtils.isNotEmpty(rightNode.getChilds())) {
+				exietNode.getChilds().add(rightNode.getChilds().get(0));
+				rightNode.getChilds().remove(0);
+			}
 			// 在该节点中插入
 			exietNode.getKeys().add(msgLocation);
 		}
@@ -279,7 +313,10 @@ public class IndexCache {
 			// 在父节点中删除该节点
 			exietNode.getParent().getKeys().remove(i-1);
 			exietNode.getParent().getChilds().remove(i);
-			
+			// 判断父结点是否满足定义
+			if (CollectionUtils.isNotEmpty(exietNode.getParent().getKeys())) {
+				adjustInsideBTree(exietNode.getParent());
+			}
 		} else {
 			BTreeNode rightNode = exietNode.getParent().getChilds().get(i+1);
 			rightNode.getKeys().add(exietNode.getParent().getKeys().get(i));
@@ -292,18 +329,11 @@ public class IndexCache {
 			// 在父节点中删除该节点
 			exietNode.getParent().getKeys().remove(i);
 			exietNode.getParent().getChilds().remove(i);
+			// 判断父结点是否满足定义
+			if (CollectionUtils.isNotEmpty(exietNode.getParent().getKeys())) {
+				adjustInsideBTree(exietNode.getParent());
+			}
 		}
-		
-		// 查看内部节点是否平衡
-		adjustInsideBTree(exietNode.getParent());
-	}
-	
-	/**
-	 * 该节点查看是否平衡
-	 * @param parent
-	 */
-	private void adjustInsideBTree(BTreeNode parent) {
-		// TODO Auto-generated method stub
 		
 	}
 
