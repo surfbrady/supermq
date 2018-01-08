@@ -8,7 +8,6 @@ import org.apache.commons.collections.CollectionUtils;
 
 import com.supermq.entity.Destination;
 import com.supermq.entity.Message;
-import com.supermq.store.IndexLog.MsgLocation;
 
 /**
  * B树的概念
@@ -21,7 +20,29 @@ import com.supermq.store.IndexLog.MsgLocation;
  *      b)   Pi为指向子树根的接点，且指针P(i-1)指向子树种所有结点的关键字均小于Ki，但都大于K(i-1)。 
  *      c)   关键字的个数n必须满足： [ceil(m / 2)-1]<= n <= m-1。
  * 
+ * 
+ * B树的插入:
+ * 
+ * 
+ * 在B-树上删除关键字k的过程分两步完成：
+ *   （1）利用前述的B-树的查找算法找出该关键字所在的结点。然后根据 k所在结点是否为叶子结点有不同的处理方法。
+ *   （2）若该结点为非叶结点，且被删关键字为该结点中第i个关键字key[i]，则可从指针son[i]所指的子树中找出最小关键字Y，代替key[i]的位置，然后在叶结点中删去Y。
+ *   
+ * 因此，把在非叶结点删除关键字k的问题就变成了删除叶子结点中的关键字的问题了
+ * 
+ * 在B-树叶结点上删除一个关键字的方法是
+ * 首先将要删除的关键字 k直接从该叶子结点中删除。然后根据不同情况分别作相应的处理，共有三种可能情况：
+ * （1）如果被删关键字所在结点的原关键字个数n>=ceil(m/2)，说明删去该关键字后该结点仍满足B-树的定义。这种情况最为简单，只需从该结点中直接删去关键字即可。
+ * （2）如果被删关键字所在结点的关键字个数n等于ceil(m/2)-1，说明删去该关键字后该结点将不满足B-树的定义，需要调整。
+ * 调整过程为：如果其左右兄弟结点中有“多余”的关键字,即与该结点相邻的右（左）兄弟结点中的关键字数目大于ceil(m/2)-1。则可将右（左）兄弟结点中最小（大）关键字上移至双亲结点。而将双亲结点中小（大）于该上移关键字的关键字下移至被删关键字所在结点中。
+ * （3）如果左右兄弟结点中没有“多余”的关键字，即与该结点相邻的右（左）兄弟结点中的关键字数目均等于ceil(m/2)-1。这种情况比较复杂。需把要删除关键字的结点与其左（或右）兄弟结点以及双亲结点中分割二者的关键字合并成一个结点,即在删除关键字后，该结点中剩余的关键字加指针，加上双亲结点中的关键字Ki一起，合并到Ai（是双亲结点指向该删除关键字结点的左（右）兄弟结点的指针）所指的兄弟结点中去。如果因此使双亲结点中关键字个数小于ceil(m/2)-1，则对此双亲结点做同样处理。以致于可能直到对根结点做这样的处理而使整个树减少一层。
+ * 总之，设所删关键字为非终端结点中的Ki，则可以指针Ai所指子树中的最小关键字Y代替Ki，然后在相应结点中删除Y。对任意关键字的删除都可以转化为对最下层关键字的删除
+ * 
  * @author brady
+ *
+ */
+/**
+ * @author 58
  *
  */
 public class IndexCache {
@@ -34,12 +55,8 @@ public class IndexCache {
 		
 	}
 	
-	public void addMessage(Message message) throws Exception {
+	public void addMessageIndex(MsgLocation msgLocation, Message message) throws Exception {
 		String topicName = message.getDestination().getName();
-		// 首先往日志中插入节点
-		MsgLocation msgLocation = new MsgLocation();
-		msgLocation.setMessageId(message.getMessageId());
-		
 		// 第一步找到root节点
 		BTreeNode rootNode = bTreeMap.get(topicName);
 		if (rootNode==null) {
@@ -166,16 +183,49 @@ public class IndexCache {
 		if (exietNode == null) {
 			throw new Exception("该消息不存在");
 		}
-		// 第三步 删除结点之后，需要看树是否仍是B树
+		
+		// 找出该节点该关键字对应的左子树的最大关键字，替换该关键字。
+		
+		
+		// 第三步 删除左子树的最大关键字，需要调整仍是B树
 		adjustBTree(exietNode, message);
 	}
 
+	/**
+	 * 查找父节点中指向该节点的指针数组的下标
+	 * @param searchNode
+	 * @param msgLocation
+	 * @return
+	 * @throws Exception
+	 */
+	private int findParentKey(BTreeNode parentNode, BTreeNode childNode) throws Exception {
+		// 遍历查找
+		for(int i=0; i<parentNode.getChilds().size(); i++) {
+			if (parentNode.getChilds().get(i) == childNode) {
+				return i;
+			}
+		}
+		
+		throw new Exception("未从父节点中找到指向该节点的指针");
+	}
+	
+	
+	/**
+	 * 在叶节点中删除该节点
+	 * @param exietNode
+	 * @param message
+	 * @throws Exception
+	 */
 	private void adjustBTree(BTreeNode exietNode, Message message) throws Exception {
-		// 1. 如果该结点，满足B树的定义则不用操作
+		
+		// 1. 如果该结点，是root节点
 		if (exietNode.getParent()==null) {
+			// 在该节点中删除该关键字
+			deleteKeyInBTreeNode(exietNode, message);
 			return;
 		}
 		
+		// 2. 找到该节点
 		int loc = -1;
 		for (int i=0; i<exietNode.getKeys().size(); i++) {
 			if (exietNode.getKeys().get(i).getMessageId() == message.getMessageId()) {
@@ -188,15 +238,99 @@ public class IndexCache {
 			throw new Exception("该结点不存在");
 		}
 		
-		// 说明是叶子结点，直接删除即可
-		if (CollectionUtils.isEmpty(exietNode.getChilds())) {
-			exietNode.getKeys().remove(loc);
+		deleteKeyInBTreeNode(exietNode, message);
+		// 如果该节点的关键字大于最小关键字个数，直接删除关键字即可。
+		if (exietNode.getKeys().size() >= (Math.ceil(m/2.0)-1)) {
 			return;
 		}
 		// 查看兄弟结点是否富有，如果富有则借一个。
-		// 首先看右边
+		// 先看左边
+		// 查找指向该指针的位置
+		int i = findParentKey(exietNode.getParent(), exietNode);
+		if (i>0 && (exietNode.getParent().getChilds().get(i-1).getKeys().size()>=Math.ceil(m/2.0))) {
+			BTreeNode leftNode = exietNode.getParent().getChilds().get(i-1);
+			MsgLocation msgLocation = deleteKeyInBTreeNode(exietNode.getParent(), i-1);  // 删掉父节点中的该关键字
+			int leftNodeKeySize = leftNode.getKeys().size();
+			exietNode.getParent().getKeys().add(i-1, leftNode.getKeys().get(leftNodeKeySize-1));    // 在父节点中插入左孩子的最大关键字
+			leftNode.getKeys().remove(leftNodeKeySize-1); // 在左孩子中删除最大关键字
+			// 在该节点中插入
+			exietNode.getKeys().add(msgLocation);
+		}
+		// 在看右边
+		if (i<(exietNode.getParent().getKeys().size()-1) && (exietNode.getParent().getChilds().get(i+1).getKeys().size()>=Math.ceil(m/2.0))) {
+			BTreeNode rightNode = exietNode.getParent().getChilds().get(i+1);
+			MsgLocation msgLocation = deleteKeyInBTreeNode(exietNode.getParent(), i);  // 删掉父节点中的该关键字
+			exietNode.getParent().getKeys().add(i, rightNode.getKeys().get(0));    // 在父节点中插入左孩子的最大关键字
+			rightNode.getKeys().remove(0); // 在左孩子中删除最大关键字
+			// 在该节点中插入
+			exietNode.getKeys().add(msgLocation);
+		}
+		// 需要合并节点
+		// 跟左兄弟合并
+		if (i>0) {
+			BTreeNode leftNode = exietNode.getParent().getChilds().get(i-1);
+			leftNode.getKeys().add(exietNode.getParent().getKeys().get(i-1));
+			for (MsgLocation msgLocation : exietNode.getKeys()) {
+				leftNode.getKeys().add(msgLocation);
+			}
+			for (BTreeNode bTreeNode : exietNode.getChilds()) {
+				leftNode.getChilds().add(bTreeNode);
+			}
+			// 在父节点中删除该节点
+			exietNode.getParent().getKeys().remove(i-1);
+			exietNode.getParent().getChilds().remove(i);
+			
+		} else {
+			BTreeNode rightNode = exietNode.getParent().getChilds().get(i+1);
+			rightNode.getKeys().add(exietNode.getParent().getKeys().get(i));
+			for (int temp = exietNode.getKeys().size()-1 ; temp>=0; temp--) {
+				rightNode.getKeys().add(0, exietNode.getKeys().get(temp));
+			}
+			for (int tempChild = exietNode.getChilds().size()-1 ; tempChild>=0; tempChild--) {
+				rightNode.getChilds().add(0, exietNode.getChilds().get(tempChild));
+			}
+			// 在父节点中删除该节点
+			exietNode.getParent().getKeys().remove(i);
+			exietNode.getParent().getChilds().remove(i);
+		}
+		
+		// 查看内部节点是否平衡
+		adjustInsideBTree(exietNode.getParent());
+	}
+	
+	/**
+	 * 该节点查看是否平衡
+	 * @param parent
+	 */
+	private void adjustInsideBTree(BTreeNode parent) {
+		// TODO Auto-generated method stub
 		
 	}
+
+	/**
+	 * 删除节点该下标的数，并且返回该节点
+	 * @param exietNode
+	 * @param i
+	 */
+	private MsgLocation deleteKeyInBTreeNode(BTreeNode exietNode, int i) {
+		MsgLocation msgLocation = exietNode.getKeys().get(i);
+		exietNode.getKeys().remove(i);
+		return msgLocation;
+	}
+
+	private void deleteKeyInBTreeNode(BTreeNode node, Message message) {
+		if (CollectionUtils.isEmpty(node.getKeys())) {
+			return;
+		}
+		for (int i=0; i<node.getKeys().size(); i++) {
+			if (node.getKeys().get(i).getMessageId() == message.getMessageId()) {
+				node.getKeys().remove(i);
+				return;
+			}
+		}
+		
+	}
+
 	/**
 	 * 查找该消息存在的位置
 	 * @param rootNode
@@ -223,6 +357,7 @@ public class IndexCache {
 	}
 
 	public static void main(String[] args) {
+		
 		IndexCache indexCache = new IndexCache();
 		for (int i =0;i<100;i++) {
 			int a = new Random().nextInt(1000);
@@ -232,7 +367,7 @@ public class IndexCache {
 			destination.setName("a");
 			message.setDestination(destination );
 			try {
-				indexCache.addMessage(message);
+//				indexCache.addMessage(message);
 			} catch (Exception e) {
 				e.printStackTrace();
 			}

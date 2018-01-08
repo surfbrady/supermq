@@ -13,7 +13,7 @@ import java.util.List;
  */
 public class BTreeNode {
 	private BTreeNode parent;
-	private List<IndexLog.MsgLocation> keys = new ArrayList<IndexLog.MsgLocation>();
+	private List<MsgLocation> keys = new ArrayList<MsgLocation>();
 	private List<BTreeNode> childs = new ArrayList<BTreeNode>();
 	
 	public BTreeNode getParent() {
@@ -28,10 +28,10 @@ public class BTreeNode {
 	public void setChilds(List<BTreeNode> childs) {
 		this.childs = childs;
 	}
-	public List<IndexLog.MsgLocation> getKeys() {
+	public List<MsgLocation> getKeys() {
 		return keys;
 	}
-	public void setKeys(List<IndexLog.MsgLocation> keys) {
+	public void setKeys(List<MsgLocation> keys) {
 		this.keys = keys;
 	}
 	

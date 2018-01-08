@@ -7,39 +7,33 @@ import com.supermq.consumer.Consumer;
 import com.supermq.entity.Message;
 import com.supermq.store.IndexLog;
 import com.supermq.store.Journal;
+import com.supermq.store.MsgLocation;
+import com.supermq.store.SuperDB;
 
 public class Topic {
 
 	private List<Consumer> consumer;
 	private String topicName;
-	private Journal journal;
+	private SuperDB superDB;
 	
-	public Topic (String topicName, Journal journal) {
+	public Topic (String topicName, SuperDB superDB) {
 		this.topicName = topicName;
-		this.journal = journal;
+		this.superDB = superDB;
 	}
 	
 	public void addMessage(Message msg) throws Exception {
 		// 添加消息
-		IndexLog.MsgLocation msgLocation = journal.addMessage(msg);
+		superDB.addMessage(msg);
 		
 		
 	}
 	
 	public Message getMessage() throws Exception {
 		// 获取消息
-		return journal.getMessage();
+		return null;
 	}
 	
 	public static void main(String[] args) {
-		Message msg = new Message();
-		msg.setContext("yes first");
-		Topic topic = new Topic("aa", new Journal());
-		try {
-			topic.addMessage(msg);
-			System.out.println(JSON.toJSONString(topic.getMessage()));
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+
 	}
 }
