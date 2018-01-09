@@ -75,6 +75,11 @@ public class IndexCache {
 		insertKeyInBTreeNode(insertNode, msgLocation);
 		// 第四步判断节点是否需要分裂
 		divideNode(insertNode);
+		
+		while (rootNode.getParent()!=null) {
+			rootNode = rootNode.getParent();
+		}
+		bTreeMap.put(topicName, rootNode);
 	}
 
 	/**
@@ -94,8 +99,43 @@ public class IndexCache {
 		}
 		
 		// 节点已满，需要将中间关键字，移入父节点
-		List<MsgLocation> keys = insertNode.getKeys();
-		insertKeyInBTreeNode(insertNode.getParent(), keys.get(keys.size()/2));
+		BTreeNode newNode = new BTreeNode();
+		int middle = insertNode.getKeys().size()/2;
+		// 遍历查找
+		for(int i=0; i<middle; i++) {
+			newNode.getKeys().add(insertNode.getKeys().get(0));
+			insertNode.getKeys().remove(0);
+			// 如果非叶子结点
+			if (CollectionUtils.isNotEmpty(insertNode.getChilds())) {
+				newNode.getChilds().add(insertNode.getChilds().get(0));
+				insertNode.getChilds().remove(0);
+			}
+		}
+		
+		if (CollectionUtils.isNotEmpty(insertNode.getChilds())) {
+			newNode.getChilds().add(insertNode.getChilds().get(0));
+			insertNode.getChilds().remove(0);
+		}
+		
+		// 在父结点中插入关键字和孩子
+		int insertLocation = -1;
+		for (int i=0; i<insertNode.getParent().getKeys().size(); i++) {
+			if (insertNode.getParent().getKeys().get(i).getMessageId()>insertNode.getKeys().get(0).getMessageId()) {
+				insertLocation = i;
+				break;
+			}
+		}
+		
+		BTreeNode parent = insertNode.getParent();
+		insertLocation = (parent.getKeys().size()==0)?0:(parent.getKeys().size()-1);
+		
+		parent.getKeys().add(insertLocation, insertNode.getKeys().get(0));
+		insertNode.getKeys().remove(0);
+		parent.getChilds().add(insertLocation, newNode);
+		parent.getChilds().add(insertLocation+1, insertNode);
+
+		
+ 		divideNode(parent);
 	}
 
 	/**
@@ -104,16 +144,18 @@ public class IndexCache {
 	 * @param message
 	 */
 	private void insertKeyInBTreeNode(BTreeNode insertNode, MsgLocation msgLocation) {
-		List<MsgLocation> keys = insertNode.getKeys();
-		
-		// 遍历查找
-		for(int i=0; i<keys.size(); i++) {
-			if (keys.get(i).getMessageId()>msgLocation.getMessageId()) {
-				keys.add(i, msgLocation);
-				return;
+		int insertLocation = -1;
+		for (int i=0; i<insertNode.getKeys().size(); i++) {
+			if (insertNode.getKeys().get(i).getMessageId()>msgLocation.getMessageId()) {
+				insertLocation = i;
+				break;
 			}
 		}
-		keys.add(keys.size(), msgLocation);
+		
+		if (insertLocation==-1) {
+			insertLocation = (insertNode.getKeys().size()==0)?0:(insertNode.getKeys().size()-1);
+		}
+		insertNode.getKeys().add(insertLocation, msgLocation);
 	}
 
 	/**
@@ -134,7 +176,7 @@ public class IndexCache {
 			}
 		}
 		
-		throw new Exception("找到插入位置");
+		return findInsertNode(searchNode.getChilds().get(searchNode.getChilds().size()-1), msgLocation);
 	}
 	
 	/**
@@ -187,16 +229,20 @@ public class IndexCache {
 			throw new Exception("该消息不存在");
 		}
 		
+		BTreeNode newRootNode = null;
 		// 找出该节点该关键字对应的左子树的最大关键字，替换该关键字。
 		if (CollectionUtils.isNotEmpty(exietNode.getChilds())) {
-			delKeyInInsideNodeAndAdjust(exietNode, message.getMessageId());
+			newRootNode = delKeyInInsideNodeAndAdjust(exietNode, message.getMessageId());
 		} else {
-			delKeyInLeafNodeAndAdjust(exietNode, message.getMessageId());
-			
+			newRootNode = delKeyInLeafNodeAndAdjust(exietNode, message.getMessageId());
+		}
+		
+		if (newRootNode!=null) {
+			rootNode = newRootNode;
 		}
 	}
 
-	private void delKeyInInsideNodeAndAdjust(BTreeNode exietNode, long messageId) throws Exception {
+	private BTreeNode delKeyInInsideNodeAndAdjust(BTreeNode exietNode, long messageId) throws Exception {
 		BTreeNode leftLeafNode = exietNode.getChilds().get(exietNode.getChilds().size()-1);
 		while (CollectionUtils.isNotEmpty(leftLeafNode.getChilds())) {
 			leftLeafNode = exietNode.getChilds().get(leftLeafNode.getChilds().size()-1);
@@ -209,7 +255,7 @@ public class IndexCache {
 			}
 		}
 		leftLeafNode.getKeys().remove(leftLeafNode.getKeys().size()-1);
-		adjustInsideBTree(leftLeafNode);
+		 return adjustInsideBTree(leftLeafNode);
 	}
 
 	/**
@@ -242,13 +288,13 @@ public class IndexCache {
 	 * @param message
 	 * @throws Exception
 	 */
-	private void delKeyInLeafNodeAndAdjust(BTreeNode exietNode, long messageId) throws Exception {
+	private BTreeNode delKeyInLeafNodeAndAdjust(BTreeNode exietNode, long messageId) throws Exception {
 		
 		// 1. 如果该结点，是root节点
 		if (exietNode.getParent()==null) {
 			// 在该节点中删除该关键字
 			deleteKeyInBTreeNode(exietNode, messageId);
-			return;
+			return null;
 		}
 		
 		// 2. 找到该节点
@@ -266,20 +312,20 @@ public class IndexCache {
 		
 		deleteKeyInBTreeNode(exietNode, messageId);
 		
-		adjustInsideBTree(exietNode);
+		return adjustInsideBTree(exietNode);
 	}
 	
 	/**
 	 * 该节点是否平衡,如果不平衡将其调整平衡
 	 * @param parent
 	 */
-	private void adjustInsideBTree(BTreeNode exietNode) throws Exception {
+	private BTreeNode adjustInsideBTree(BTreeNode exietNode) throws Exception {
 		if (exietNode.getParent()==null) {
-			return;
+			return null;
 		}
 		
 		if (exietNode.getKeys().size() >= (Math.ceil(m/2.0)-1)) {
-			return;
+			return null;
 		}
 		
 		// 查看兄弟结点是否富有，如果富有则借一个。
@@ -329,8 +375,10 @@ public class IndexCache {
 			// 判断父结点是否满足定义
 			if (CollectionUtils.isNotEmpty(exietNode.getParent().getKeys())) {
 				adjustInsideBTree(exietNode.getParent());
+				return null;
 			} else {
 				exietNode.setParent(null);
+				return exietNode;
 			}
 		} else {
 			BTreeNode rightNode = exietNode.getParent().getChilds().get(i+1);
@@ -347,8 +395,10 @@ public class IndexCache {
 			// 判断父结点是否满足定义
 			if (CollectionUtils.isNotEmpty(exietNode.getParent().getKeys())) {
 				adjustInsideBTree(exietNode.getParent());
+				return null;
 			} else {
 				exietNode.setParent(null);
+				return exietNode;
 			}
 		}
 		
@@ -423,12 +473,13 @@ public class IndexCache {
 				e.printStackTrace();
 			}
 		}
-		
+		System.out.println("最终字符串为：" + indexCache.printNode("a"));
+
 		System.out.println("list:::" + JSON.toJSONString(list));
 		Collections.shuffle(list);
 		System.out.println("list:::" + JSON.toJSONString(list));
 		
-		for (int i=0; i<list.size(); i++) {
+		for (int i=0; i<list.size()-1; i++) {
 			int temp = list.get(i);
 			Message message = new Message();
 			message.setMessageId(temp);
