@@ -1,11 +1,14 @@
 package com.supermq.store;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.collections.CollectionUtils;
 
+import com.alibaba.fastjson.JSON;
 import com.supermq.entity.Destination;
 import com.supermq.entity.Message;
 
@@ -179,29 +182,34 @@ public class IndexCache {
 			throw new Exception("该主题不存在");
 		}
 		// 第二步找到该结点位置
-		BTreeNode exietNode = findBTreeNodeContainKey(rootNode, message);
+		BTreeNode exietNode = findBTreeNodeContainKey(rootNode, message.getMessageId());
 		if (exietNode == null) {
 			throw new Exception("该消息不存在");
 		}
 		
 		// 找出该节点该关键字对应的左子树的最大关键字，替换该关键字。
 		if (CollectionUtils.isNotEmpty(exietNode.getChilds())) {
-			BTreeNode leftLeafNode = exietNode.getChilds().get(exietNode.getChilds().size()-1);
-			while (CollectionUtils.isNotEmpty(leftLeafNode.getChilds())) {
-				leftLeafNode = exietNode.getChilds().get(leftLeafNode.getChilds().size()-1);
-			}
-			for (int i=0; i<exietNode.getKeys().size(); i++) {
-				MsgLocation msgLocation = exietNode.getKeys().get(i);
-				if (msgLocation.getMessageId() == message.getMessageId()) {
-					msgLocation = leftLeafNode.getKeys().get(leftLeafNode.getKeys().size()-1);
-				}
-			}
-			leftLeafNode.getKeys().remove(leftLeafNode.getKeys().size()-1);
-			adjustInsideBTree(leftLeafNode);
+			delKeyInInsideNodeAndAdjust(exietNode, message.getMessageId());
 		} else {
-			adjustBTree(exietNode, message);
+			delKeyInLeafNodeAndAdjust(exietNode, message.getMessageId());
 			
 		}
+	}
+
+	private void delKeyInInsideNodeAndAdjust(BTreeNode exietNode, long messageId) throws Exception {
+		BTreeNode leftLeafNode = exietNode.getChilds().get(exietNode.getChilds().size()-1);
+		while (CollectionUtils.isNotEmpty(leftLeafNode.getChilds())) {
+			leftLeafNode = exietNode.getChilds().get(leftLeafNode.getChilds().size()-1);
+		}
+		for (int i=0; i<exietNode.getKeys().size(); i++) {
+			MsgLocation msgLocation = exietNode.getKeys().get(i);
+			if (msgLocation.getMessageId() == messageId) {
+				// 替换
+				msgLocation = leftLeafNode.getKeys().get(leftLeafNode.getKeys().size()-1);
+			}
+		}
+		leftLeafNode.getKeys().remove(leftLeafNode.getKeys().size()-1);
+		adjustInsideBTree(leftLeafNode);
 	}
 
 	/**
@@ -214,7 +222,12 @@ public class IndexCache {
 	private int findParentKey(BTreeNode parentNode, BTreeNode childNode) throws Exception {
 		// 遍历查找
 		for(int i=0; i<parentNode.getChilds().size(); i++) {
-			if (parentNode.getChilds().get(i) == childNode) {
+			if (parentNode.getChilds().get(i).getKeys().size() == childNode.getKeys().size()) {
+				for (int j=0; i<parentNode.getChilds().get(i).getKeys().size(); j++) {
+					if (parentNode.getChilds().get(i).getKeys().get(j) != childNode.getKeys().get(j)) {
+						break;
+					}
+				}
 				return i;
 			}
 		}
@@ -229,19 +242,19 @@ public class IndexCache {
 	 * @param message
 	 * @throws Exception
 	 */
-	private void adjustBTree(BTreeNode exietNode, Message message) throws Exception {
+	private void delKeyInLeafNodeAndAdjust(BTreeNode exietNode, long messageId) throws Exception {
 		
 		// 1. 如果该结点，是root节点
 		if (exietNode.getParent()==null) {
 			// 在该节点中删除该关键字
-			deleteKeyInBTreeNode(exietNode, message);
+			deleteKeyInBTreeNode(exietNode, messageId);
 			return;
 		}
 		
 		// 2. 找到该节点
 		int loc = -1;
 		for (int i=0; i<exietNode.getKeys().size(); i++) {
-			if (exietNode.getKeys().get(i).getMessageId() == message.getMessageId()) {
+			if (exietNode.getKeys().get(i).getMessageId() == messageId) {
 				loc = i;
 				break;
 			}
@@ -251,7 +264,7 @@ public class IndexCache {
 			throw new Exception("该结点不存在");
 		}
 		
-		deleteKeyInBTreeNode(exietNode, message);
+		deleteKeyInBTreeNode(exietNode, messageId);
 		
 		adjustInsideBTree(exietNode);
 	}
@@ -316,6 +329,8 @@ public class IndexCache {
 			// 判断父结点是否满足定义
 			if (CollectionUtils.isNotEmpty(exietNode.getParent().getKeys())) {
 				adjustInsideBTree(exietNode.getParent());
+			} else {
+				exietNode.setParent(null);
 			}
 		} else {
 			BTreeNode rightNode = exietNode.getParent().getChilds().get(i+1);
@@ -332,6 +347,8 @@ public class IndexCache {
 			// 判断父结点是否满足定义
 			if (CollectionUtils.isNotEmpty(exietNode.getParent().getKeys())) {
 				adjustInsideBTree(exietNode.getParent());
+			} else {
+				exietNode.setParent(null);
 			}
 		}
 		
@@ -348,12 +365,12 @@ public class IndexCache {
 		return msgLocation;
 	}
 
-	private void deleteKeyInBTreeNode(BTreeNode node, Message message) {
+	private void deleteKeyInBTreeNode(BTreeNode node, long messageId) {
 		if (CollectionUtils.isEmpty(node.getKeys())) {
 			return;
 		}
 		for (int i=0; i<node.getKeys().size(); i++) {
-			if (node.getKeys().get(i).getMessageId() == message.getMessageId()) {
+			if (node.getKeys().get(i).getMessageId() == messageId) {
 				node.getKeys().remove(i);
 				return;
 			}
@@ -367,38 +384,63 @@ public class IndexCache {
 	 * @param message
 	 * @return
 	 */
-	private BTreeNode findBTreeNodeContainKey(BTreeNode node, Message message) {
+	private BTreeNode findBTreeNodeContainKey(BTreeNode node, long messageId) {
 		if (CollectionUtils.isEmpty(node.getKeys())) {
 			return null;
 		}
 		for (int i=0; i<node.getKeys().size(); i++) {
-			if (node.getKeys().get(i).getMessageId() == message.getMessageId()) {
+			if (node.getKeys().get(i).getMessageId() == messageId) {
 				return node;
 			}
-			if (node.getKeys().get(i).getMessageId() > message.getMessageId()) {
+			if (node.getKeys().get(i).getMessageId() > messageId) {
 				if (CollectionUtils.isNotEmpty(node.getChilds()) && node.getChilds().size()>=(i+1)) {
-					return findBTreeNodeContainKey(node.getChilds().get(i), message);
+					return findBTreeNodeContainKey(node.getChilds().get(i), messageId);
 				} else return null;
 			}
 		}
 		if (CollectionUtils.isNotEmpty(node.getChilds()) && node.getChilds().size()>=(node.getKeys().size()+1)) {
-			return findBTreeNodeContainKey(node.getChilds().get(node.getKeys().size()), message);
+			return findBTreeNodeContainKey(node.getChilds().get(node.getKeys().size()), messageId);
 		} else return null;
 	}
 
 	public static void main(String[] args) {
 		
 		IndexCache indexCache = new IndexCache();
+		List<Integer> list = new ArrayList<Integer>();
 		for (int i =0;i<100;i++) {
 			int a = new Random().nextInt(1000);
 			Message message = new Message();
+			list.add(a);
 			message.setMessageId(a);
 			Destination destination = new Destination();
 			destination.setName("a");
 			message.setDestination(destination );
+			MsgLocation msgLocation = new MsgLocation();
+			msgLocation.setMessageId(a);
 			try {
-//				indexCache.addMessage(message);
+				indexCache.addMessageIndex(msgLocation, message);
 			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+		
+		System.out.println("list:::" + JSON.toJSONString(list));
+		Collections.shuffle(list);
+		System.out.println("list:::" + JSON.toJSONString(list));
+		
+		for (int i=0; i<list.size(); i++) {
+			int temp = list.get(i);
+			Message message = new Message();
+			message.setMessageId(temp);
+			Destination destination = new Destination();
+			destination.setName("a");
+			message.setDestination(destination );
+			MsgLocation msgLocation = new MsgLocation();
+			msgLocation.setMessageId(temp);
+			try {
+				indexCache.delMessage(message);
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}

@@ -15,4 +15,9 @@ public class SuperDB {
 		MsgLocation msgLocation = journal.addMessage(msg);
 		
 	}
+	
+	public void delMessage(Message msg) throws Exception {
+		MsgLocation msgLocation = journal.addMessage(msg);
+		
+	}
 }
