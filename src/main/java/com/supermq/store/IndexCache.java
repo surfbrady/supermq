@@ -44,10 +44,6 @@ import com.supermq.entity.Message;
  * @author brady
  *
  */
-/**
- * @author 58
- *
- */
 public class IndexCache {
 
 	private static ConcurrentHashMap<String, BTreeNode> bTreeMap = new ConcurrentHashMap<String, BTreeNode>();
