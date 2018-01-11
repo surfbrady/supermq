@@ -2,11 +2,14 @@ package com.supermq.store;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang.StringUtils;
 
 import com.alibaba.fastjson.JSON;
 import com.supermq.entity.Destination;
@@ -96,6 +99,7 @@ public class IndexCache {
 		
 		// 节点已满，需要将中间关键字，移入父节点
 		BTreeNode newNode = new BTreeNode();
+		newNode.setParent(insertNode.getParent());
 		int middle = insertNode.getKeys().size()/2;
 		// 遍历查找
 		for(int i=0; i<middle; i++) {
@@ -104,12 +108,14 @@ public class IndexCache {
 			// 如果非叶子结点
 			if (CollectionUtils.isNotEmpty(insertNode.getChilds())) {
 				newNode.getChilds().add(insertNode.getChilds().get(0));
+				insertNode.getChilds().get(0).setParent(newNode);
 				insertNode.getChilds().remove(0);
 			}
 		}
 		
 		if (CollectionUtils.isNotEmpty(insertNode.getChilds())) {
 			newNode.getChilds().add(insertNode.getChilds().get(0));
+			insertNode.getChilds().get(0).setParent(newNode);
 			insertNode.getChilds().remove(0);
 		}
 		
@@ -123,8 +129,9 @@ public class IndexCache {
 		}
 		
 		BTreeNode parent = insertNode.getParent();
-		insertLocation = (parent.getKeys().size()==0)?0:(parent.getKeys().size()-1);
-		
+		if (insertLocation==-1) {
+			insertLocation = (parent.getKeys().size()==0)?0:(parent.getKeys().size());
+		}
 		parent.getKeys().add(insertLocation, insertNode.getKeys().get(0));
 		insertNode.getKeys().remove(0);
 		parent.getChilds().add(insertLocation, newNode);
@@ -149,7 +156,7 @@ public class IndexCache {
 		}
 		
 		if (insertLocation==-1) {
-			insertLocation = (insertNode.getKeys().size()==0)?0:(insertNode.getKeys().size()-1);
+			insertLocation = (insertNode.getKeys().size()==0)?0:(insertNode.getKeys().size());
 		}
 		insertNode.getKeys().add(insertLocation, msgLocation);
 	}
@@ -194,15 +201,14 @@ public class IndexCache {
 		for (int i=0; i<bTreeNode.getKeys().size(); i++) {
 			 // 先打印左子树，
 			 if (CollectionUtils.isNotEmpty(bTreeNode.getChilds()) && bTreeNode.getChilds().size()>=i) {
-				 sb.append(printNode(bTreeNode.getChilds().get(i))+",");
+				 sb.append(printNode(bTreeNode.getChilds().get(i)));
 			 }
 			 // 打印该节点
 			 sb.append(bTreeNode.getKeys().get(i).getMessageId()+",");
-			 // 在打印右子树
-			 if (CollectionUtils.isNotEmpty(bTreeNode.getChilds()) && bTreeNode.getChilds().size()>=i+1) {
-				 sb.append(printNode(bTreeNode.getChilds().get(i+1))+",");
-			 }
-			
+		}
+		// 在打印最后一个孩子节点
+		if (CollectionUtils.isNotEmpty(bTreeNode.getChilds()) && bTreeNode.getChilds().size()>2) {
+			sb.append(printNode(bTreeNode.getChilds().get(bTreeNode.getChilds().size()-1)));
 		}
 		
 		return sb.toString();
@@ -453,9 +459,16 @@ public class IndexCache {
 		
 		IndexCache indexCache = new IndexCache();
 		List<Integer> list = new ArrayList<Integer>();
+		Map<String, String> map = new HashMap<String, String>();
 		for (int i =0;i<100;i++) {
 			int a = new Random().nextInt(1000);
+			if (StringUtils.isBlank(map.get(a+"")) ) {
+				map.put(a+"", "true");
+			} else {
+				continue;
+			}
 			Message message = new Message();
+			
 			list.add(a);
 			message.setMessageId(a);
 			Destination destination = new Destination();
