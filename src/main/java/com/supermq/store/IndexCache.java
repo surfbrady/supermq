@@ -135,7 +135,9 @@ public class IndexCache {
 		parent.getKeys().add(insertLocation, insertNode.getKeys().get(0));
 		insertNode.getKeys().remove(0);
 		parent.getChilds().add(insertLocation, newNode);
-		parent.getChilds().add(insertLocation+1, insertNode);
+		if (parent.getParent()==null&&parent.getKeys().size()==1) {
+			parent.getChilds().add(insertLocation+1, insertNode);
+		}
 
 		
  		divideNode(parent);
@@ -172,14 +174,21 @@ public class IndexCache {
 		}
 		
 		List<MsgLocation> keys = searchNode.getKeys();
+		int insertLocation = -1;
+
 		// 遍历查找
 		for(int i=0; i<keys.size(); i++) {
 			if (keys.get(i).getMessageId()>msgLocation.getMessageId()) {
-				return findInsertNode(searchNode.getChilds().get(i), msgLocation);
+				insertLocation = i;
+				break;
 			}
 		}
 		
-		return findInsertNode(searchNode.getChilds().get(searchNode.getChilds().size()-1), msgLocation);
+		if (insertLocation==-1) {
+			insertLocation = (keys.size()==0)?0:(keys.size());
+		}
+		
+		return findInsertNode(searchNode.getChilds().get(insertLocation), msgLocation);
 	}
 	
 	/**
@@ -187,6 +196,9 @@ public class IndexCache {
 	 * @param topicName
 	 * @return
 	 */
+	public static List<Long> a = new ArrayList<Long>();
+	
+	
 	private String printNode(String topicName) {
 		BTreeNode rootNode = bTreeMap.get(topicName);
 		if (rootNode==null) {
@@ -205,9 +217,10 @@ public class IndexCache {
 			 }
 			 // 打印该节点
 			 sb.append(bTreeNode.getKeys().get(i).getMessageId()+",");
+			 a.add(bTreeNode.getKeys().get(i).getMessageId());
 		}
 		// 在打印最后一个孩子节点
-		if (CollectionUtils.isNotEmpty(bTreeNode.getChilds()) && bTreeNode.getChilds().size()>2) {
+		if (CollectionUtils.isNotEmpty(bTreeNode.getChilds()) && bTreeNode.getChilds().size()>=2) {
 			sb.append(printNode(bTreeNode.getChilds().get(bTreeNode.getChilds().size()-1)));
 		}
 		
@@ -482,7 +495,7 @@ public class IndexCache {
 				e.printStackTrace();
 			}
 		}
-		System.out.println("最终字符串为：" + indexCache.printNode("a"));
+		System.out.println("list::1:" + indexCache.printNode("a"));
 
 		System.out.println("list:::" + JSON.toJSONString(list));
 		Collections.shuffle(list);
