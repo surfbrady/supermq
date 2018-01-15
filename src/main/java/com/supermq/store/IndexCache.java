@@ -258,9 +258,9 @@ public class IndexCache {
 	}
 
 	private BTreeNode delKeyInInsideNodeAndAdjust(BTreeNode exietNode, long messageId) throws Exception {
-		BTreeNode leftLeafNode = exietNode.getChilds().get(exietNode.getChilds().size()-1);
+		BTreeNode leftLeafNode = exietNode.getChilds().get(0);
 		while (CollectionUtils.isNotEmpty(leftLeafNode.getChilds())) {
-			leftLeafNode = exietNode.getChilds().get(leftLeafNode.getChilds().size()-1);
+			leftLeafNode = exietNode.getChilds().get(0);
 		}
 		for (int i=0; i<exietNode.getKeys().size(); i++) {
 			MsgLocation msgLocation = exietNode.getKeys().get(i);
@@ -283,13 +283,17 @@ public class IndexCache {
 	private int findParentKey(BTreeNode parentNode, BTreeNode childNode) throws Exception {
 		// 遍历查找
 		for(int i=0; i<parentNode.getChilds().size(); i++) {
+			boolean flag = false;
 			if (parentNode.getChilds().get(i).getKeys().size() == childNode.getKeys().size()) {
 				for (int j=0; i<parentNode.getChilds().get(i).getKeys().size(); j++) {
 					if (parentNode.getChilds().get(i).getKeys().get(j) != childNode.getKeys().get(j)) {
 						break;
 					}
+					flag = true;
 				}
-				return i;
+				if (flag) {
+					return i;
+				}
 			}
 		}
 		
@@ -355,6 +359,7 @@ public class IndexCache {
 			leftNode.getKeys().remove(leftNodeKeySize-1); // 在左孩子中删除最大关键字
 			if (CollectionUtils.isNotEmpty(leftNode.getChilds())) {
 				exietNode.getChilds().add(0,leftNode.getChilds().get(leftNode.getChilds().size()-1));
+				exietNode.getChilds().get(0).setParent(exietNode);
 				leftNode.getChilds().remove(leftNode.getChilds().size()-1);
 			}
 			// 在该节点中插入
@@ -368,6 +373,7 @@ public class IndexCache {
 			rightNode.getKeys().remove(0); // 在右孩子中删除最大关键字
 			if (CollectionUtils.isNotEmpty(rightNode.getChilds())) {
 				exietNode.getChilds().add(rightNode.getChilds().get(0));
+				exietNode.getChilds().get(exietNode.getChilds().size()-1).setParent(exietNode);
 				rightNode.getChilds().remove(0);
 			}
 			// 在该节点中插入
@@ -383,6 +389,7 @@ public class IndexCache {
 			}
 			for (BTreeNode bTreeNode : exietNode.getChilds()) {
 				leftNode.getChilds().add(bTreeNode);
+				bTreeNode.setParent(leftNode);
 			}
 			// 在父节点中删除该节点
 			exietNode.getParent().getKeys().remove(i-1);
@@ -403,6 +410,7 @@ public class IndexCache {
 			}
 			for (int tempChild = exietNode.getChilds().size()-1 ; tempChild>=0; tempChild--) {
 				rightNode.getChilds().add(0, exietNode.getChilds().get(tempChild));
+				rightNode.getChilds().get(0).setParent(rightNode);
 			}
 			// 在父节点中删除该节点
 			exietNode.getParent().getKeys().remove(i);
@@ -430,9 +438,9 @@ public class IndexCache {
 		return msgLocation;
 	}
 
-	private void deleteKeyInBTreeNode(BTreeNode node, long messageId) {
+	private void deleteKeyInBTreeNode(BTreeNode node, long messageId) throws Exception {
 		if (CollectionUtils.isEmpty(node.getKeys())) {
-			return;
+			throw new Exception("没有该节点");
 		}
 		for (int i=0; i<node.getKeys().size(); i++) {
 			if (node.getKeys().get(i).getMessageId() == messageId) {
@@ -440,6 +448,7 @@ public class IndexCache {
 				return;
 			}
 		}
+		throw new Exception("没有该节点");
 		
 	}
 
@@ -458,12 +467,12 @@ public class IndexCache {
 				return node;
 			}
 			if (node.getKeys().get(i).getMessageId() > messageId) {
-				if (CollectionUtils.isNotEmpty(node.getChilds()) && node.getChilds().size()>=(i+1)) {
+				if (CollectionUtils.isNotEmpty(node.getChilds())) {
 					return findBTreeNodeContainKey(node.getChilds().get(i), messageId);
 				} else return null;
 			}
 		}
-		if (CollectionUtils.isNotEmpty(node.getChilds()) && node.getChilds().size()>=(node.getKeys().size()+1)) {
+		if (CollectionUtils.isNotEmpty(node.getChilds())) {
 			return findBTreeNodeContainKey(node.getChilds().get(node.getKeys().size()), messageId);
 		} else return null;
 	}
