@@ -60,11 +60,10 @@ public class TransportServer implements Runnable {
                         InetAddress ia = sc.socket().getInetAddress();
                         sc.configureBlocking(false);
                         SelectionKey sk = sc.register(selector,SelectionKey.OP_READ);
-                        NIOServerCnxn cnxn = createConnection(sc, sk);
+                        TransportConnection cnxn = createConnection(sc, sk);
                         sk.attach(cnxn);
-                        addCnxn(cnxn);
                     } else if ((k.readyOps() & (SelectionKey.OP_READ | SelectionKey.OP_WRITE)) != 0) {
-                        NIOServerCnxn c = (NIOServerCnxn) k.attachment();
+                    	TransportConnection c = (TransportConnection) k.attachment();
                         c.doIO(k);
                     } else {
                     }
@@ -76,6 +75,10 @@ public class TransportServer implements Runnable {
             	e.printStackTrace();
             }
         }
+	}
+
+	private TransportConnection createConnection(SocketChannel sc, SelectionKey sk) {
+		return new TransportConnection(sc, sk);
 	}
 	
 }
