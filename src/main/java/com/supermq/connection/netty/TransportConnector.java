@@ -1,4 +1,4 @@
-package com.supermq.connection;
+package com.supermq.connection.netty;
 
 import java.net.InetSocketAddress;
 import java.util.concurrent.Executors;
@@ -12,8 +12,6 @@ import org.jboss.netty.channel.Channels;
 import org.jboss.netty.handler.codec.string.StringDecoder;
 import org.jboss.netty.handler.codec.string.StringEncoder;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
-
-import com.supermq.connection.netty.SocketHandler;
 
 /**
  * 客户端连接处理类
