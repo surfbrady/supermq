@@ -1,8 +1,8 @@
-package com.supermq.entity;
+package com.supermq.command;
 
 import java.io.Serializable;
 
-public class Message implements Serializable {
+public class Message implements Command, Serializable {
 
 	/**
 	 * 
@@ -30,6 +30,9 @@ public class Message implements Serializable {
 	}
 	public void setDestination(Destination destination) {
 		this.destination = destination;
+	}
+	public boolean isMessage() {
+		return true;
 	}
 	
 }

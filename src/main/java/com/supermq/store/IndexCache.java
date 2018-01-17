@@ -12,8 +12,8 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.StringUtils;
 
 import com.alibaba.fastjson.JSON;
-import com.supermq.entity.Destination;
-import com.supermq.entity.Message;
+import com.supermq.command.Destination;
+import com.supermq.command.Message;
 
 /**
  * B树的概念

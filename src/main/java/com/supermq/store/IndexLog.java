@@ -2,7 +2,7 @@ package com.supermq.store;
 
 import java.io.RandomAccessFile;
 
-import com.supermq.entity.Message;
+import com.supermq.command.Message;
 
 /**
  * 读写索引文件

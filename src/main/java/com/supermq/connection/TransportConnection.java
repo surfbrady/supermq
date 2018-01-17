@@ -5,6 +5,10 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 
+import com.alibaba.fastjson.JSON;
+import com.supermq.command.Command;
+import com.supermq.command.Message;
+
 public class TransportConnection {
 	private SocketChannel socketChannel;
 	private SelectionKey selectionKey;
@@ -64,7 +68,13 @@ public class TransportConnection {
 	 * 处理接收到的消息
 	 */
 	private void packetReceived() {
-		// TODO Auto-generated method stub
+		// 解析消息
+		Command command = JSON.parseObject(incomingBuffer.array(), Command.class);
+		if (command.isMessage()) {
+			System.out.println(" message it is ");
+			Message message = (Message)command;
+			System.out.println("message context:" + message.getContext());
+		}
 		
 	}
 

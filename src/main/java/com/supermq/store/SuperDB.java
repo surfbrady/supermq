@@ -1,6 +1,6 @@
 package com.supermq.store;
 
-import com.supermq.entity.Message;
+import com.supermq.command.Message;
 
 public class SuperDB {
 	private Journal journal;

@@ -1,4 +1,4 @@
-package com.supermq.entity;
+package com.supermq.command;
 
 /**
  * 消息目的地

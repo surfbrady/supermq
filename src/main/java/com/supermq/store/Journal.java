@@ -3,7 +3,7 @@ package com.supermq.store;
 import java.io.RandomAccessFile;
 
 import com.alibaba.fastjson.JSON;
-import com.supermq.entity.Message;
+import com.supermq.command.Message;
 
 /**
  * 日志文件用于记录消息

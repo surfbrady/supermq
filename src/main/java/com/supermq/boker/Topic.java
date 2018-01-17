@@ -3,8 +3,8 @@ package com.supermq.boker;
 import java.util.List;
 
 import com.alibaba.fastjson.JSON;
+import com.supermq.command.Message;
 import com.supermq.consumer.Consumer;
-import com.supermq.entity.Message;
 import com.supermq.store.IndexLog;
 import com.supermq.store.Journal;
 import com.supermq.store.MsgLocation;
