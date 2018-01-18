@@ -31,6 +31,8 @@ public class Message implements Command, Serializable {
 	public void setDestination(Destination destination) {
 		this.destination = destination;
 	}
+	
+	@Override
 	public boolean isMessage() {
 		return true;
 	}

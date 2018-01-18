@@ -3,6 +3,7 @@ package com.supermq.connection;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.SocketException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
@@ -43,6 +44,7 @@ public class TransportServer implements Runnable {
 		thread.start();
 	}
 	
+	@Override
 	public void run() {
         while (!ss.socket().isClosed()) {
             try {
@@ -51,14 +53,13 @@ public class TransportServer implements Runnable {
                 synchronized (this) {
                     selected = selector.selectedKeys();
                 }
-                ArrayList<SelectionKey> selectedList = new ArrayList<SelectionKey>(
-                        selected);
+                ArrayList<SelectionKey> selectedList = new ArrayList<SelectionKey>(selected);
                 Collections.shuffle(selectedList);
                 for (SelectionKey k : selectedList) {
                     if ((k.readyOps() & SelectionKey.OP_ACCEPT) != 0) {
-                        SocketChannel sc = ((ServerSocketChannel) k
-                                .channel()).accept();
+                        SocketChannel sc = ((ServerSocketChannel) k.channel()).accept();
                         InetAddress ia = sc.socket().getInetAddress();
+                        System.out.println("ip:"+sc.socket().getLocalAddress() +"port:"+sc.socket().getPort() +"port:"+sc.socket().getPort());
                         sc.configureBlocking(false);
                         SelectionKey sk = sc.register(selector,SelectionKey.OP_READ);
                         TransportConnection cnxn = createConnection(sc, sk);
@@ -76,10 +77,24 @@ public class TransportServer implements Runnable {
             	e.printStackTrace();
             }
         }
+        
+        closeAll();
+	}
+
+	private void closeAll() {
+		// TODO Auto-generated method stub
+		
 	}
 
 	private TransportConnection createConnection(SocketChannel sc, SelectionKey sk) {
-		return new TransportConnection(sc, sk);
+		try {
+			return new TransportConnection(sc, sk);
+		} catch (SocketException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		return null;
 	}
 	
 	public static void main(String[] args) {
