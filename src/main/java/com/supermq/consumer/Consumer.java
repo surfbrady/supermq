@@ -2,10 +2,14 @@ package com.supermq.consumer;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
+
+import com.alibaba.fastjson.JSON;
+import com.supermq.command.Message;
 
 public class Consumer {
 	private String hostAddress;
@@ -30,8 +34,22 @@ public class Consumer {
         registerAndConnect(sock, inetSocketAddress);
 	}
 	
-    private void registerAndConnect(SocketChannel sock, InetSocketAddress inetSocketAddress) throws ClosedChannelException {
+    private void registerAndConnect(SocketChannel sock, InetSocketAddress inetSocketAddress) throws IOException {
 		sockKey = sock.register(selector, SelectionKey.OP_CONNECT);
+		boolean connectFlag = sock.connect(inetSocketAddress);
+		if (connectFlag) {
+			System.out.println("连接上服务器！");
+			Message message = new Message();
+			message.setContext("第一条消息");
+			int num = JSON.toJSONString(message).getBytes().length;
+			ByteBuffer bb = ByteBuffer.allocate(num+4);
+			bb.putInt(num);
+			bb.put(JSON.toJSONString(message).getBytes());
+			if (bb.remaining()==0) {
+				System.out.println("没有剩余空间！");
+			}
+			sock.write(bb);
+		}
 	}
 
 	/**
@@ -47,4 +65,13 @@ public class Consumer {
         sock.socket().setTcpNoDelay(true);
         return sock;
     }
+    
+	public static void main(String[] args) {
+		try {
+			new Consumer("127.0.0.1", 9999);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
 }

@@ -39,6 +39,7 @@ public class TransportServer implements Runnable {
 	}
 	
 	public void start () {
+		config();
 		thread.start();
 	}
 	
@@ -81,4 +82,14 @@ public class TransportServer implements Runnable {
 		return new TransportConnection(sc, sk);
 	}
 	
+	public static void main(String[] args) {
+		try {
+			TransportServer server = new TransportServer();
+			server.start();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+	}
 }
